@@ -9,41 +9,44 @@ import (
 )
 
 type RequestClient struct {
-	responseBody string
-	statusCode   int
-	verifySsl    bool
+	resBody    string
+	statusCode int
 }
 
-func (rc *RequestClient) sendSoapRequest(url string, headers map[string]string, requestBody string) (err error) {
+type SOAPClient struct {
+	RequestClient
+}
+
+type RESTClient struct {
+	RequestClient
+}
+
+func (sc *SOAPClient) DispatchReq(url string, headers map[string]string, requestBody string) (err error) {
 	log.Print("*********************** REQUEST START ***********************")
 	log.Printf("POST to <%s>", url)
 	log.Printf("Headers: {%s}", utils.MapToString(headers))
 	log.Print("Request Body: \n", requestBody)
 
 	var res *http.Response
-	res, err = http.Post(url, "application/soap+xml; charset=utf-8", strings.NewReader(requestBody))
-	if err != nil {
-		log.Print("Http post error: ", err)
+	if res, err = http.Post(url, "application/soap+xml; charset=utf-8", strings.NewReader(requestBody)); err != nil {
 		return
 	}
 	defer res.Body.Close()
 
-	rc.statusCode = res.StatusCode
+	sc.statusCode = res.StatusCode
 	log.Printf("Response status: <%d>", res.StatusCode)
 
 	var data []byte
-	data, err = ioutil.ReadAll(res.Body)
-	if err != nil {
-		log.Print("Error when reading the response body stream: ", err)
+	if data, err = ioutil.ReadAll(res.Body); err != nil {
 		return
 	}
 
 	resBody := string(data)
-	rc.responseBody = resBody
+	sc.resBody = resBody
 	log.Print("Response Body: \n", resBody)
 	return
 }
 
-func (*RequestClient) sendRestRequest() {
+func (rc *RESTClient) DispatchReq() {
 
 }

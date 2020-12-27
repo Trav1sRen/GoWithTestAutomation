@@ -2,19 +2,19 @@ package utils
 
 import (
 	"bufio"
+	"encoding/json"
 	"github.com/bitly/go-simplejson"
 	"io"
-	"log"
 	"os"
+	"strings"
 )
 
-func readJsonFile(path string) (json *simplejson.Json, err error) {
+func ReadJsonFile(path string) (j *simplejson.Json, err error) {
 	defPath := getRootPath() + path
 
 	var input *os.File
 	input, err = os.Open(defPath)
 	if err != nil {
-		log.Printf("Error when opening the file '%s': %v", defPath, err)
 		return
 	}
 	defer input.Close()
@@ -23,22 +23,44 @@ func readJsonFile(path string) (json *simplejson.Json, err error) {
 	reader := bufio.NewReader(input)
 	for {
 		line, err := reader.ReadString('\n')
+		s += line
 		if err == io.EOF {
 			break
 		}
-		s += line
 	}
 
-	json, err = simplejson.NewJson([]byte(s))
+	j, err = simplejson.NewJson([]byte(s))
 	if err != nil {
-		log.Print("Error when parsing bytes to Json: ", err)
 		return
 	}
 	return
 }
 
-func UnflattenJson(json *simplejson.Json) (newJson *simplejson.Json, err error) {
-	newJson = simplejson.New()
+func UnflattenJson(j *simplejson.Json) (newj *simplejson.Json, err error) {
+	newj = simplejson.New()
 
+	var m map[string]interface{}
+	if m, err = j.Map(); err != nil {
+		return
+	}
+
+	for k, v := range m {
+		path := strings.Split(k, ".")
+		newj.SetPath(path, v)
+	}
+	return
+}
+
+func Json2Str(j *simplejson.Json) (s string, err error) {
+	var m map[string]interface{}
+	if m, err = j.Map(); err != nil {
+		return
+	}
+
+	var b []byte
+	if b, err = json.Marshal(m); err != nil {
+		return
+	}
+	s = string(b)
 	return
 }
