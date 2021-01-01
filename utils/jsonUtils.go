@@ -3,6 +3,7 @@ package utils
 import (
 	"bufio"
 	"encoding/json"
+	"github.com/beevik/etree"
 	"github.com/bitly/go-simplejson"
 	"io"
 	"os"
@@ -36,7 +37,7 @@ func ReadJsonFile(path string) (j *simplejson.Json, err error) {
 	return
 }
 
-func UnflattenJson(j *simplejson.Json) (newj *simplejson.Json, err error) {
+func UnflattenJson(j *simplejson.Json, delim string) (newj *simplejson.Json, err error) {
 	newj = simplejson.New()
 
 	var m map[string]interface{}
@@ -45,9 +46,35 @@ func UnflattenJson(j *simplejson.Json) (newj *simplejson.Json, err error) {
 	}
 
 	for k, v := range m {
-		path := strings.Split(k, ".")
+		path := strings.Split(k, delim)
 		newj.SetPath(path, v)
 	}
+	return
+}
+
+func FlatJson2Xml(j *simplejson.Json, delim string) (doc *etree.Document, err error) {
+	doc = etree.NewDocument()
+
+	var m map[string]interface{}
+	if m, err = j.Map(); err != nil {
+		return
+	}
+
+	var cur *etree.Element
+	cur = &doc.Element
+	for k, v := range m {
+		path := strings.Split(k, delim)
+		for i, tag := range path {
+			find := doc.FindElement("./" + strings.Join(path[:i+1], "/"))
+			if find != nil {
+				cur = find
+			}
+			cur = cur.CreateElement(tag)
+		}
+		cur.CreateText(v.(string))
+	}
+
+	doc.Indent(2)
 	return
 }
 
