@@ -7,6 +7,7 @@ import (
 	"github.com/bitly/go-simplejson"
 	"io"
 	"os"
+	"regexp"
 	"strings"
 )
 
@@ -52,7 +53,7 @@ func UnflattenJson(j *simplejson.Json, delim string) (newj *simplejson.Json, err
 	return
 }
 
-func FlatJson2Xml(j *simplejson.Json, delim string) (doc *etree.Document, err error) {
+func FlatJson2Xml(j *simplejson.Json, delim, dupSymbol string) (doc *etree.Document, err error) {
 	doc = etree.NewDocument()
 
 	var m map[string]interface{}
@@ -65,13 +66,48 @@ func FlatJson2Xml(j *simplejson.Json, delim string) (doc *etree.Document, err er
 	for k, v := range m {
 		path := strings.Split(k, delim)
 		for i, tag := range path {
-			find := doc.FindElement("./" + strings.Join(path[:i+1], "/"))
-			if find != nil {
-				cur = find
+			attrs := make(map[string]string)
+
+			if reg := regexp.MustCompile(`(\w+)\[(.+)]`); reg != nil {
+				m := reg.FindAllStringSubmatch(tag, 1)
+				if len(m) != 0 {
+					tag = m[0][1]
+					pairs := m[0][2]
+					if reg = regexp.MustCompile(`\w+=\w+`); reg != nil {
+						for _, pair := range reg.FindAllString(pairs, -1) {
+							p := strings.Split(pair, "=")
+							attrs[p[0]] = p[1]
+						}
+					}
+				}
 			}
-			cur = cur.CreateElement(tag)
+
+			var f *etree.Element
+			createElement := func() {
+				cur = cur.CreateElement(tag)
+				for k, v := range attrs {
+					cur.CreateAttr(k, v)
+				}
+				attrs = make(map[string]string)
+			}
+
+			if tag[len(tag)-1:] == dupSymbol {
+				tag = tag[:len(tag)-1]
+				f = doc.FindElement("./" + strings.Join(path[:i], "/"))
+				cur = f
+				createElement()
+			} else {
+				f = doc.FindElement("./" + strings.Join(path[:i+1], "/"))
+				if f != nil {
+					cur = f
+					continue
+				}
+				createElement()
+			}
 		}
-		cur.CreateText(v.(string))
+		if v.(string) != "" {
+			cur.CreateText(v.(string))
+		}
 	}
 
 	doc.Indent(2)
