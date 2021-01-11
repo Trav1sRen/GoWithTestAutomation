@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-// MapToString : Convert Map to String for output
+// MapToString converts Map to String for output
 func MapToString(m map[string]string) string {
 	b := new(bytes.Buffer)
 	for key, value := range m {

@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-// ReadJSONFile : Read JSONObject from file at specified path
+// ReadJSONFile returns JSONObject from file at specified path
 func ReadJSONFile(path string) (j *simplejson.Json, err error) {
 	defPath := getRootPath() + path
 
@@ -39,7 +39,7 @@ func ReadJSONFile(path string) (j *simplejson.Json, err error) {
 	return
 }
 
-// UnflattenJSON : Convert flat JSONObject to nested JSONObject
+// UnflattenJSON converts flat JSONObject to nested JSONObject
 func UnflattenJSON(j *simplejson.Json, delim string) (newj *simplejson.Json, err error) {
 	newj = simplejson.New()
 
@@ -55,7 +55,7 @@ func UnflattenJSON(j *simplejson.Json, delim string) (newj *simplejson.Json, err
 	return
 }
 
-// FlatJSON2XML : Convert flat JSONObject to element tree
+// FlatJSON2XML converts flat JSONObject to ElementTree Document
 func FlatJSON2XML(j *simplejson.Json, delim, dupSymbol string) (doc *etree.Document, err error) {
 	doc = etree.NewDocument()
 
@@ -117,7 +117,7 @@ func FlatJSON2XML(j *simplejson.Json, delim, dupSymbol string) (doc *etree.Docum
 	return
 }
 
-// JSON2Str : Convert JSONObject to String
+// JSON2Str converts JSONObject to String
 func JSON2Str(j *simplejson.Json) (s string, err error) {
 	var m map[string]interface{}
 	if m, err = j.Map(); err != nil {
