@@ -5,4 +5,5 @@ go 1.15
 require (
 	github.com/beevik/etree v1.1.0
 	github.com/bitly/go-simplejson v0.5.0
+	github.com/clbanning/mxj/v2 v2.3.2
 )

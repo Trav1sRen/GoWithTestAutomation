@@ -32,7 +32,7 @@ func ReadJSONFile(path string) (j *simplejson.Json, err error) {
 		}
 	}
 
-	j, err = simplejson.NewJson([]byte(s))
+	j, err = Str2JSON(s)
 	if err != nil {
 		return
 	}
@@ -129,5 +129,11 @@ func JSON2Str(j *simplejson.Json) (s string, err error) {
 		return
 	}
 	s = string(b)
+	return
+}
+
+// Str2JSON converts String to JSONObject
+func Str2JSON(s string) (j *simplejson.Json, err error) {
+	j, err = simplejson.NewJson([]byte(s))
 	return
 }

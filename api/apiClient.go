@@ -11,8 +11,7 @@ import (
 
 type RequestClient struct {
 	auth
-	Url, ResBody string
-	StatusCode   int
+	BaseURL      string
 	InsecureSkip bool
 }
 
@@ -25,13 +24,14 @@ type SOAPClient struct {
 }
 
 type RESTClient struct {
-	Method string
 	RequestClient
 }
 
-func (sc *SOAPClient) DispatchReq(headers map[string]string, soapAction, soapBody string) (err error) {
+func (sc *SOAPClient) DispatchReq(headers map[string]string, soapAction string, so *SOAPObject) (err error) {
+	reqURL := sc.BaseURL + so.Endpoint
+
 	var req *http.Request
-	if req, err = http.NewRequest("POST", sc.Url, strings.NewReader(soapBody)); err != nil {
+	if req, err = http.NewRequest("POST", reqURL, strings.NewReader(so.SOAPBody)); err != nil {
 		return
 	}
 
@@ -55,9 +55,9 @@ func (sc *SOAPClient) DispatchReq(headers map[string]string, soapAction, soapBod
 	client := &http.Client{Transport: tr}
 
 	log.Print("*********************** REQUEST START ***********************")
-	log.Printf("POST to <%s>", sc.Url)
+	log.Printf("POST to <%s>", reqURL)
 	log.Printf("Headers: {%s}", utils.MapToString(headers))
-	log.Print("Request Body: \n", soapBody)
+	log.Print("Request Body: \n", so.SOAPBody)
 
 	var res *http.Response
 	if res, err = client.Do(req); err != nil {
@@ -65,7 +65,7 @@ func (sc *SOAPClient) DispatchReq(headers map[string]string, soapAction, soapBod
 	}
 	defer res.Body.Close()
 
-	sc.StatusCode = res.StatusCode
+	so.StatusCode = res.StatusCode
 	log.Printf("Response status: <%d>", res.StatusCode)
 
 	var data []byte
@@ -74,7 +74,12 @@ func (sc *SOAPClient) DispatchReq(headers map[string]string, soapAction, soapBod
 	}
 
 	resBody := string(data)
-	sc.ResBody = resBody
+	so.ResStr = resBody
+	so.ResMap, err = utils.XML2Map(resBody)
+	if err != nil {
+		return
+	}
+
 	log.Print("Response Body: \n", resBody)
 	return
 }
