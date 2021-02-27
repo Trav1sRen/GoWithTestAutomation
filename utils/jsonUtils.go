@@ -2,7 +2,7 @@ package utils
 
 import (
 	"bufio"
-	"encoding/json"
+	"fmt"
 	"github.com/beevik/etree"
 	"github.com/bitly/go-simplejson"
 	"io"
@@ -39,18 +39,60 @@ func ReadJSONFile(path string) (j *simplejson.Json, err error) {
 	return
 }
 
-// UnflattenJSON converts flat JSONObject to nested JSONObject
-func UnflattenJSON(j *simplejson.Json, delim string) (newj *simplejson.Json, err error) {
-	newj = simplejson.New()
-
+// UnflattenJSON converts flat JSONObject to nested JSON string
+func UnflattenJSON(j *simplejson.Json, delim, dupSymbol string) (s string, err error) {
 	var m map[string]interface{}
 	if m, err = j.Map(); err != nil {
 		return
 	}
 
+	newMap := make(map[string]interface{})
 	for k, v := range m {
+		curr := newMap // restart from root after each iteration done
 		path := strings.Split(k, delim)
-		newj.SetPath(path, v)
+		if lastBranch := path[len(path)-1]; lastBranch[len(lastBranch)-1:] == dupSymbol {
+			err = fmt.Errorf("last branch should not end with the duplicate symbol <%s>",
+				dupSymbol)
+			return
+		}
+
+		for _, b := range path[:len(path)-1] {
+			dup := false // flag to judge the array creation
+			if b[len(b)-1:] == dupSymbol {
+				b = b[:len(b)-1]
+				dup = true
+			}
+
+			// key exists?
+			if _, ok := curr[b]; !ok {
+				var n map[string]interface{}
+				if dup {
+					var sli []map[string]interface{}
+					n = make(map[string]interface{})
+					sli = append(sli, n)
+					curr[b] = sli
+				} else {
+					n = make(map[string]interface{})
+					curr[b] = n
+				}
+				curr = n
+				continue
+			}
+			if dup {
+				sli := curr[b].([]map[string]interface{})
+				n := make(map[string]interface{})
+				sli = append(sli, n)
+				curr[b] = sli
+				curr = n
+				continue
+			}
+			curr = curr[b].(map[string]interface{})
+		}
+		curr[path[len(path)-1]] = v
+	}
+
+	if s, err = MapToJSONStr(newMap); err != nil {
+		return
 	}
 	return
 }
@@ -124,11 +166,9 @@ func JSON2Str(j *simplejson.Json) (s string, err error) {
 		return
 	}
 
-	var b []byte
-	if b, err = json.Marshal(m); err != nil {
+	if s, err = MapToJSONStr(m); err != nil {
 		return
 	}
-	s = string(b)
 	return
 }
 

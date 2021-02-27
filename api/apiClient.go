@@ -27,7 +27,7 @@ type RESTClient struct {
 	RequestClient
 }
 
-func (sc *SOAPClient) DispatchReq(headers map[string]string, soapAction string, so *SOAPObject) (err error) {
+func (sc *SOAPClient) DispatchReq(so *SOAPObject) (err error) {
 	reqURL := sc.BaseURL + so.Endpoint
 
 	var req *http.Request
@@ -39,11 +39,8 @@ func (sc *SOAPClient) DispatchReq(headers map[string]string, soapAction string, 
 		req.SetBasicAuth(sc.Username, sc.Password)
 	}
 
-	headers["SOAPAction"] = soapAction
-	// TODO: Content-Type is different between SOAP version 1.1/1.2
-	headers["Content-Type"] = "text/xml; charset=\"utf-8\""
-	for k, v := range headers {
-		req.Header.Add(k, v)
+	for k, v := range so.Headers {
+		req.Header.Add(k, v.(string))
 	}
 
 	tr := &http.Transport{
@@ -56,7 +53,7 @@ func (sc *SOAPClient) DispatchReq(headers map[string]string, soapAction string, 
 
 	log.Print("*********************** REQUEST START ***********************")
 	log.Printf("POST to <%s>", reqURL)
-	log.Printf("Headers: {%s}", utils.MapToString(headers))
+	log.Printf("Headers: {%s}", utils.MapToString(so.Headers))
 	log.Print("Request Body: \n", so.SOAPBody)
 
 	var res *http.Response
