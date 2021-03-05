@@ -3,6 +3,7 @@ package api
 import (
 	"GoWithTestAutomation/utils"
 	"crypto/tls"
+	"github.com/bitly/go-simplejson"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -28,24 +29,58 @@ type RESTClient struct {
 }
 
 func (sc *SOAPClient) DispatchReq(so *SOAPObject) (err error) {
-	reqURL := sc.BaseURL + so.Endpoint
+	if err = sc.dispatchReq(&so.RequestObject, &so.ResponseObject); err != nil {
+		return
+	}
+	if so.ResMap, err = utils.XML2Map(so.ResStr); err != nil {
+		return
+	}
+	return nil
+}
 
-	var req *http.Request
-	if req, err = http.NewRequest("POST", reqURL, strings.NewReader(so.SOAPBody)); err != nil {
+func (rc *RESTClient) DispatchReq(ro *RESTObject) (err error) {
+	if err = rc.dispatchReq(&ro.RequestObject, &ro.ResponseObject); err != nil {
 		return
 	}
 
-	if sc.auth != struct{ Username, Password string }{} {
-		req.SetBasicAuth(sc.Username, sc.Password)
+	switch strings.ToUpper(ro.DataFormat) {
+	case "XML":
+		if ro.ResMap, err = utils.XML2Map(ro.ResStr); err != nil {
+			return
+		}
+		break
+	case "JSON":
+		var j *simplejson.Json
+		if j, err = utils.Str2JSON(ro.ResStr); err != nil {
+			return
+		}
+		if ro.ResMap, err = j.Map(); err != nil {
+			return
+		}
 	}
 
-	for k, v := range so.Headers {
+	return nil
+}
+
+func (rc *RequestClient) dispatchReq(reqObj *RequestObject, resObj *ResponseObject) (err error) {
+	reqURL := rc.BaseURL + reqObj.Endpoint
+
+	var req *http.Request
+	if req, err = http.NewRequest(reqObj.Method, reqURL, strings.NewReader(reqObj.RequestBody)); err != nil {
+		return
+	}
+
+	if rc.auth != struct{ Username, Password string }{} {
+		req.SetBasicAuth(rc.Username, rc.Password)
+	}
+
+	for k, v := range reqObj.Headers {
 		req.Header.Add(k, v.(string))
 	}
 
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: sc.InsecureSkip,
+			InsecureSkipVerify: rc.InsecureSkip,
 		},
 	}
 
@@ -53,8 +88,8 @@ func (sc *SOAPClient) DispatchReq(so *SOAPObject) (err error) {
 
 	log.Print("*********************** REQUEST START ***********************")
 	log.Printf("POST to <%s>", reqURL)
-	log.Printf("Headers: {%s}", utils.MapToString(so.Headers))
-	log.Print("Request Body: \n", so.SOAPBody)
+	log.Printf("Headers: {%s}", utils.MapToString(reqObj.Headers))
+	log.Print("Request Body: \n", reqObj.RequestBody)
 
 	var res *http.Response
 	if res, err = client.Do(req); err != nil {
@@ -62,7 +97,7 @@ func (sc *SOAPClient) DispatchReq(so *SOAPObject) (err error) {
 	}
 	defer res.Body.Close()
 
-	so.StatusCode = res.StatusCode
+	resObj.StatusCode = res.StatusCode
 	log.Printf("Response status: <%d>", res.StatusCode)
 
 	var data []byte
@@ -71,16 +106,8 @@ func (sc *SOAPClient) DispatchReq(so *SOAPObject) (err error) {
 	}
 
 	resBody := string(data)
-	so.ResStr = resBody
-	so.ResMap, err = utils.XML2Map(resBody)
-	if err != nil {
-		return
-	}
+	resObj.ResStr = resBody
 
 	log.Print("Response Body: \n", resBody)
 	return
-}
-
-func (rc *RESTClient) DispatchReq() {
-
 }

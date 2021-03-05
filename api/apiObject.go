@@ -2,8 +2,10 @@ package api
 
 import (
 	"GoWithTestAutomation/utils"
+	"fmt"
 	"github.com/beevik/etree"
 	"github.com/bitly/go-simplejson"
+	"strings"
 )
 
 type SOAPAttrs struct {
@@ -13,21 +15,22 @@ type SOAPAttrs struct {
 }
 
 type SOAPObject struct {
-	EnvNS, // xmlns for soap Envelope
-	SOAPBody string
+	EnvNS string // xmlns for soap Envelope
 	RequestObject
 	ResponseObject
 }
 
 type RESTObject struct {
-	Method string
+	DataFormat string
 	RequestObject
 	ResponseObject
 }
 
 type RequestObject struct {
+	Method,
 	Endpoint string
-	Headers  map[string]interface{}
+	Headers     map[string]interface{}
+	RequestBody string
 }
 
 type ResponseObject struct {
@@ -36,7 +39,7 @@ type ResponseObject struct {
 	ResMap     map[string]interface{}
 }
 
-func (so *SOAPObject) CreateSOAPBody(soapHeaderInJSON, soapBodyInJSON *simplejson.Json,
+func (so *SOAPObject) CreateRequestBody(soapHeaderInJSON, soapBodyInJSON *simplejson.Json,
 	filePath, delim, dupSymbol string, attrs SOAPAttrs) (err error) {
 	createAttrs := func(ele *etree.Element, m map[string]string) {
 		if m != nil {
@@ -87,8 +90,43 @@ func (so *SOAPObject) CreateSOAPBody(soapHeaderInJSON, soapBodyInJSON *simplejso
 	}
 	body.AddChild(subDoc)
 
-	if so.SOAPBody, err = doc.WriteToString(); err != nil {
+	if so.RequestBody, err = doc.WriteToString(); err != nil {
 		return
 	}
+	return nil
+}
+
+func (ro *RESTObject) CreateRequestBody(bodyInJSON *simplejson.Json,
+	filePath, delim, dupSymbol string) (err error) {
+	var flatJSON *simplejson.Json
+	if filePath != "" {
+		if flatJSON, err = utils.ReadJSONFile(filePath); err != nil {
+			return
+		}
+	} else {
+		flatJSON = bodyInJSON
+	}
+
+	df := strings.ToUpper(ro.DataFormat)
+	switch df {
+	case "XML":
+		var doc *etree.Document
+		if doc, err = utils.FlatJSON2XML(flatJSON, delim, dupSymbol); err != nil {
+			return
+		}
+		if ro.RequestBody, err = doc.WriteToString(); err != nil {
+			return
+		}
+		break
+	case "JSON":
+		if ro.RequestBody, err = utils.UnflattenJSON(flatJSON, delim, dupSymbol); err != nil {
+			return
+		}
+		break
+	default:
+		err = fmt.Errorf("<%s> is not a valid Request/Response format", df)
+		return
+	}
+
 	return nil
 }
